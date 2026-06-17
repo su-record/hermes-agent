@@ -21,13 +21,17 @@ import { setAwaitingResponse, setBusy } from '@/store/session'
  * and the empty margins pass clicks through to whatever is behind.
  *
  * Gestures on the pet: drag to move it anywhere on screen (even outside the
- * app), shift-click to pop it back into the window, plain click to open a small
- * composer that sends a prompt to the most recent session. A mail icon (shown
- * only when a turn finished while you were away) raises the app on that thread.
+ * app), shift-click to pop it back into the window, single-click to open a small
+ * composer, double-click to toggle the app window (minimize ↔ restore). A mail
+ * icon (shown only when a turn finished while you were away) raises the app on
+ * the most recent thread.
  */
 
 // Below this much pointer travel, a press counts as a click, not a drag.
 const CLICK_SLOP_PX = 3
+// A second click within this window is a double-click (raise app) and cancels
+// the deferred single-click (open composer), so a double never flashes it open.
+const DOUBLE_CLICK_MS = 250
 
 interface DragState {
   startX: number
@@ -51,6 +55,7 @@ export function PetOverlayApp() {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const ignoreRef = useRef(true)
   const composerOpenRef = useRef(false)
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const setIgnore = (ignore: boolean) => {
     if (ignoreRef.current !== ignore) {
@@ -102,7 +107,10 @@ export function PetOverlayApp() {
 
     window.addEventListener('mousemove', onMove)
 
-    return () => window.removeEventListener('mousemove', onMove)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      clearTimeout(clickTimerRef.current)
+    }
   }, [])
 
   // The whole window must stay interactive while the composer is open (so the
@@ -178,12 +186,27 @@ export function PetOverlayApp() {
       return
     }
 
-    // A clean click: shift pops the pet back in; otherwise toggle the composer.
+    // Shift-click always pops the pet back in (no double-click ambiguity).
     if (e.shiftKey) {
       window.hermesDesktop?.petOverlay?.control({ type: 'pop-in' })
-    } else {
-      setComposerOpen(open => !open)
+
+      return
     }
+
+    // Double-click toggles the app window (minimize ↔ restore); defer the
+    // single-click composer toggle so a double never flashes the composer open.
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current)
+      clickTimerRef.current = undefined
+      window.hermesDesktop?.petOverlay?.control({ type: 'toggle-app' })
+
+      return
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = undefined
+      setComposerOpen(open => !open)
+    }, DOUBLE_CLICK_MS)
   }
 
   const send = () => {
@@ -244,14 +267,14 @@ export function PetOverlayApp() {
           style={{
             background: 'var(--ui-bg-elevated)',
             border: '1px solid var(--ui-stroke-secondary)',
-            borderRadius: 10,
+            borderRadius: 2,
             boxShadow: '0 6px 18px rgba(0,0,0,0.28)',
             color: 'var(--foreground)',
             fontSize: 12,
             marginBottom: 8,
             outline: 'none',
-            padding: '7px 10px',
-            width: 200
+            padding: '4px 8px',
+            width: 184
           }}
           value={draft}
         />
@@ -282,33 +305,33 @@ export function PetOverlayApp() {
               its box so the overlay's click-through hit-test still catches it);
               stopPropagation keeps a click from starting a window drag. */}
           {unread && (
-          <button
-            aria-label="Open in Hermes"
-            onClick={openApp}
-            onPointerDown={e => e.stopPropagation()}
-            onPointerUp={e => e.stopPropagation()}
-            style={{
-              alignItems: 'center',
-              background: 'var(--ui-bg-elevated)',
-              border: '1px solid var(--ui-stroke-secondary)',
-              borderRadius: 999,
-              boxShadow: '0 4px 14px rgba(0,0,0,0.22)',
-              color: 'var(--foreground)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              height: 24,
-              justifyContent: 'center',
-              padding: 0,
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              width: 24
-            }}
-            title="Open in Hermes"
-            type="button"
-          >
-            <Mail style={{ height: 13, width: 13 }} />
-          </button>
+            <button
+              aria-label="Open in Hermes"
+              onClick={openApp}
+              onPointerDown={e => e.stopPropagation()}
+              onPointerUp={e => e.stopPropagation()}
+              style={{
+                alignItems: 'center',
+                background: 'var(--ui-bg-elevated)',
+                border: '1px solid var(--ui-stroke-secondary)',
+                borderRadius: 999,
+                boxShadow: '0 4px 14px rgba(0,0,0,0.22)',
+                color: 'var(--foreground)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                height: 24,
+                justifyContent: 'center',
+                padding: 0,
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                width: 24
+              }}
+              title="Open in Hermes"
+              type="button"
+            >
+              <Mail style={{ height: 13, width: 13 }} />
+            </button>
           )}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { AlertCircle, Clock, type IconComponent } from '@/lib/icons'
 import { $petActivity, $petState, type PetState } from '@/store/pet'
@@ -17,81 +17,97 @@ import { $petActivity, $petState, type PetState } from '@/store/pet'
  * done/error beat / waiting on the user) and is hidden at plain idle.
  */
 
-interface Bubble {
-  /** Optional — a glyph-only bubble collapses to a badge. */
-  text?: string
+type Tone = 'error' | 'wait'
+
+interface Spec {
+  lines: string[]
   glyph?: IconComponent
-  /** Tone → glyph color. Text stays neutral for legibility. */
-  tone?: 'error' | 'wait'
+  tone?: Tone
 }
 
-// A couple of phrasings per working state, rotated for a touch of life.
-const WORKING_LINES = ['working…', 'on it…', 'crunching…']
-const REVIEW_LINES = ['thinking…', 'reading…', 'reviewing…']
-
-function bubbleFor(state: PetState, awaitingInput: boolean, tick: number): Bubble | null {
-  switch (state) {
-    // Finish beats are carried by the sprite/mail icon now; no extra done badge.
-    case 'jump':
-    case 'wave':
-      return null
-
-    case 'failed':
-      return { text: 'hit a snag', glyph: AlertCircle, tone: 'error' }
-
-    case 'run':
-      return { text: WORKING_LINES[tick % WORKING_LINES.length] }
-
-    case 'review':
-      return { text: REVIEW_LINES[tick % REVIEW_LINES.length] }
-
-    case 'waiting':
-      return { text: 'your turn', glyph: Clock, tone: 'wait' }
-
-    default:
-      // Idle: only speak up if the agent is blocked waiting on the user.
-      return awaitingInput ? { text: 'your turn', glyph: Clock, tone: 'wait' } : null
+// Phrasings per mood, picked at random (no immediate repeat) for a bit of life.
+// Keep them short — the bubble is tiny and never wraps.
+const SPECS: Partial<Record<PetState, Spec>> = {
+  run: {
+    lines: ['working…', 'on it…', 'crunching…', 'tinkering…', 'cooking…', 'in the weeds…', 'wiring it up…', 'making moves…', 'heads down…', 'hammering away…']
+  },
+  review: {
+    lines: ['thinking…', 'reading…', 'reviewing…', 'pondering…', 'connecting dots…', 'sizing it up…', 'tracing it…', 'mulling…', 'scheming…', 'hmm…']
+  },
+  failed: {
+    glyph: AlertCircle,
+    lines: ['hit a snag', 'welp', 'that broke', 'oof', 'snagged'],
+    tone: 'error'
+  },
+  waiting: {
+    glyph: Clock,
+    lines: ['your turn', 'all yours', 'over to you', 'ball’s in your court', 'awaiting orders'],
+    tone: 'wait'
   }
 }
 
-const TONE_COLOR: Record<NonNullable<Bubble['tone']>, string> = {
+const TONE_COLOR: Record<Tone, string> = {
   error: 'var(--ui-red)',
   wait: 'var(--ui-yellow)'
+}
+
+// Random pick that avoids repeating the line we're already showing.
+function pick(lines: string[], prev: string): string {
+  if (lines.length <= 1) {
+    return lines[0] ?? ''
+  }
+
+  let next = prev
+
+  while (next === prev) {
+    next = lines[Math.floor(Math.random() * lines.length)]
+  }
+
+  return next
 }
 
 export function PetBubble() {
   const state = useStore($petState)
   const activity = useStore($petActivity)
-  const [tick, setTick] = useState(0)
+  const [line, setLine] = useState('')
 
-  const rotating = state === 'run' || state === 'review'
+  // Finish beats are carried by the sprite/mail icon; idle only speaks up when
+  // it's actually the user's turn. Everything else maps to a mood spec.
+  const specKey: null | PetState =
+    state in SPECS ? state : state === 'idle' && activity.awaitingInput ? 'waiting' : null
+  const rotating = specKey === 'run' || specKey === 'review'
 
-  // Advance the phrasing while the agent keeps working; reset when it stops so
-  // the next working spell starts on the first line.
+  // Pick a fresh line on every mood change, then keep rotating (random, no
+  // repeat) only while the agent is actively working/thinking.
   useEffect(() => {
-    if (!rotating) {
-      setTick(0)
+    const spec = specKey ? SPECS[specKey] : null
+
+    if (!spec) {
+      setLine('')
 
       return
     }
 
-    const id = window.setInterval(() => setTick(t => t + 1), 2600)
+    setLine(prev => pick(spec.lines, prev))
+
+    if (!rotating || spec.lines.length <= 1) {
+      return
+    }
+
+    const id = window.setInterval(() => setLine(prev => pick(spec.lines, prev)), 2600)
 
     return () => window.clearInterval(id)
-  }, [rotating])
+  }, [specKey, rotating])
 
-  const stateBubble = useMemo(
-    () => bubbleFor(state, Boolean(activity.awaitingInput), tick),
-    [state, activity.awaitingInput, tick]
-  )
-  const bubble: Bubble | null = stateBubble
+  const spec = specKey ? SPECS[specKey] : null
 
-  if (!bubble) {
+  if (!spec) {
     return null
   }
 
-  const Glyph = bubble.glyph
-  const hasText = Boolean(bubble.text)
+  const Glyph = spec.glyph
+  const text = line || spec.lines[0]
+  const hasText = Boolean(text)
 
   return (
     <div
@@ -117,10 +133,10 @@ export function PetBubble() {
     >
       {Glyph && (
         <span style={{ display: 'inline-flex' }}>
-          <Glyph style={{ color: bubble.tone ? TONE_COLOR[bubble.tone] : 'currentColor', height: 13, width: 13 }} />
+          <Glyph style={{ color: spec.tone ? TONE_COLOR[spec.tone] : 'currentColor', height: 13, width: 13 }} />
         </span>
       )}
-      {bubble.text}
+      {text}
     </div>
   )
 }

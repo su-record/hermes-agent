@@ -119,17 +119,21 @@ instantly; adopting a new pet lights it up within a moment.
 
 **Shift-click** the floating pet to pop it out into its own transparent,
 always-on-top desktop window. Out there it stays visible while Hermes is
-minimized (Codex-style), so a glance tells you what the agent is doing:
+minimized (Codex-style), so a glance tells you what the agent is doing.
 
-- **Speech bubble** — the pet shows what it's up to (`working…`, `thinking…`,
-  `your turn`).
-- **Drag** it anywhere on screen, even outside the app's bounds. Its spot and
-  in/out state persist across restarts.
-- **Click** it to open a mini composer and send a prompt to the most recent
-  session without surfacing the app.
-- **Mail icon** — appears only when a turn finished while you were away; click it
-  to raise the app on the most recent thread (and mark it read).
-- **Shift-click** again to pop it back into the window.
+Gestures once it's popped out:
+
+| Gesture | Action |
+| --- | --- |
+| **Drag** | Move the pet anywhere on screen, even outside the app. Its spot and in/out state persist across restarts. |
+| **Single-click** | Open a mini composer to send a prompt to the most recent session — without surfacing the app. |
+| **Double-click** | Toggle the app window: minimize it if it's up front, restore it if it's hidden. |
+| **Shift-click** | Pop the pet back into the window. |
+| **Mail icon** | Appears only when a turn finished while you were away; click to raise the app on the most recent thread (and mark it read). |
+
+Only the popped-out pet shows a **speech bubble** (`working…`, `thinking…`,
+`your turn`, …) — in-window the app itself is the surface, so the pet stays
+quiet there.
 
 The overlay is a pure puppet of the in-app pet — it carries no separate gateway
 connection and never appears in the dock or app switcher.
