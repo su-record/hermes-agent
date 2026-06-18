@@ -6,6 +6,12 @@ logPath := A_Args.Length >= 1 ? A_Args[1] : "ahk.log"
 CoordMode("Mouse", "Screen")
 
 ClickWithMarker(x, y, button := "Left") {
+    ; Perform click
+    Click(x, y, button)
+
+    Sleep(10)
+
+
     ToolTip(Format("Clicking at {1}, {2}", x, y))
 
     ; Draw marker
@@ -35,9 +41,6 @@ ClickWithMarker(x, y, button := "Left") {
 
     ; Remove marker after 500ms
     SetTimer(() => g.Destroy(), -500)
-
-    ; Perform click
-    Click(x, y, button)
 }
 
 
