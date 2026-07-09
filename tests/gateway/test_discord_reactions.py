@@ -246,3 +246,19 @@ async def test_on_processing_complete_cancelled_removes_eyes_without_terminal_re
 
     raw_message.remove_reaction.assert_awaited_once_with("👀", adapter._client.user)
     raw_message.add_reaction.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inbound_feedback_immediately_adds_seen_reaction_and_typing(adapter):
+    raw_message = SimpleNamespace(
+        add_reaction=AsyncMock(),
+        remove_reaction=AsyncMock(),
+    )
+
+    adapter.send_typing = AsyncMock()
+
+    event = _make_event("8", raw_message)
+    await adapter._show_inbound_feedback(event)
+
+    raw_message.add_reaction.assert_awaited_once_with("👀")
+    adapter.send_typing.assert_awaited_once_with("123", metadata=None)

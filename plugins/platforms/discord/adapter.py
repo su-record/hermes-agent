@@ -1879,6 +1879,28 @@ class DiscordAdapter(BasePlatformAdapter):
         if hasattr(message, "add_reaction"):
             await self._add_reaction(message, "👀")
 
+    async def _show_inbound_feedback(
+        self,
+        event_or_message: object,
+        chat_id: Optional[str] = None,
+    ) -> None:
+        """Show immediate visual feedback once an inbound Discord message is accepted."""
+        if isinstance(event_or_message, MessageEvent):
+            message = event_or_message.raw_message
+            chat_id = event_or_message.source.chat_id
+        else:
+            message = event_or_message
+
+        if self._reactions_enabled() and hasattr(message, "add_reaction"):
+            await self._add_reaction(message, "👀")
+
+        if not chat_id or not getattr(self.config, "typing_indicator", True):
+            return
+        try:
+            await self.send_typing(str(chat_id), metadata=None)
+        except Exception as e:
+            logger.debug("[%s] immediate typing feedback failed: %s", self.name, e)
+
     async def on_processing_complete(self, event: MessageEvent, outcome: ProcessingOutcome) -> None:
         """Swap the in-progress reaction for a final success/failure reaction."""
         if not self._reactions_enabled():
@@ -6224,6 +6246,8 @@ class DiscordAdapter(BasePlatformAdapter):
         # follow-up messages in threads it has already engaged in.
         if thread_id:
             self._threads.mark(thread_id)
+
+        await self._show_inbound_feedback(event)
 
         # Only batch plain text messages — commands, media, etc. dispatch
         # immediately since they won't be split by the Discord client.
