@@ -16,55 +16,27 @@ import urllib.request
 logger = logging.getLogger("importance_search")
 
 sys.path.insert(0, os.path.expanduser("~/hermes-agent"))
-# Codex OAuth helpers. These are underscore-prefixed (internal) in auxiliary_client —
-# isolated in this single block so that if a public API lands, only this import changes.
-# Raise a clear error instead of failing obscurely if they are renamed/removed.
-try:
-    from agent.auxiliary_client import (  # noqa: E402
-        _read_codex_access_token as _codex_token,
-        _codex_cloudflare_headers as _codex_headers,
-        _CODEX_AUX_BASE_URL as _CODEX_BASE,
-    )
-except ImportError as exc:  # pragma: no cover
-    raise ImportError(
-        "importance-search needs Codex OAuth helpers from agent.auxiliary_client "
-        "(_read_codex_access_token, _codex_cloudflare_headers, _CODEX_AUX_BASE_URL). "
-        "If these were renamed or made public, update this import block."
-    ) from exc
+from agent.auxiliary_client import call_llm, extract_content_or_reasoning  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(HERE, "search_domains.json")
 
 
 def codex_call(prompt, instructions, with_search=False, timeout=200):
-    tok = _codex_token()
-    if not tok:
-        logger.warning("No Codex access token available; returning empty result.")
-        return ""
-    h = _codex_headers(tok)
-    h["Authorization"] = "Bearer " + tok
-    h["Content-Type"] = "application/json"
-    p = {"model": "gpt-5.5", "instructions": instructions,
-         "input": [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-         "stream": True, "store": False}
-    if with_search:
-        p["tools"] = [{"type": "web_search"}]
     try:
-        raw = urllib.request.urlopen(urllib.request.Request(_CODEX_BASE + "/responses",
-              data=json.dumps(p).encode(), headers=h, method="POST"), timeout=timeout).read().decode()
+        resp = call_llm(
+            provider="codex",
+            model="gpt-5.5",
+            api_mode="codex_responses",
+            messages=[{"role": "system", "content": instructions},
+                      {"role": "user", "content": prompt}],
+            tools=[{"type": "web_search"}] if with_search else None,
+            timeout=timeout,
+        )
     except Exception as exc:
         logger.warning("Codex request failed: %s", exc)
         return ""
-    out = ""
-    for line in raw.splitlines():
-        if line.startswith("data:"):
-            try:
-                ev = json.loads(line[5:].strip())
-            except json.JSONDecodeError:
-                continue
-            if ev.get("type") == "response.output_text.delta":
-                out += ev.get("delta", "")
-    return out.strip()
+    return extract_content_or_reasoning(resp).strip()
 
 
 def yt_flat_search(query, n=8):
