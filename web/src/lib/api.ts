@@ -1,4 +1,8 @@
 import { buildHermesWebSocketUrl } from "@hermes/shared";
+import type {
+  KanbanTaskSummary,
+  KnowledgeGraphResponse,
+} from "@/lib/knowledge-graph";
 
 // The dashboard can be served either at the root of its host (e.g.
 // https://kanban.tilos.com/) or under a URL prefix when reverse-proxied
@@ -67,6 +71,7 @@ const PROFILE_SCOPED_PREFIXES = [
   "/api/status",
   "/api/gateway",
   "/api/analytics",
+  "/api/knowledge",
   "/api/skills",
   "/api/tools/toolsets",
   "/api/config",
@@ -307,6 +312,10 @@ function appendProfileParam(url: string, profile?: string): string {
 export const api = {
   buildWsUrl,
   getStatus: () => fetchJSON<StatusResponse>("/api/status"),
+  getKnowledgeGraph: () =>
+    fetchJSON<KnowledgeGraphResponse>("/api/knowledge/graph"),
+  getKanbanBoard: () =>
+    fetchJSON<KanbanBoardResponse>("/api/plugins/kanban/board"),
   /**
    * Identity probe for the dashboard auth gate (Phase 7).
    *
@@ -1827,6 +1836,19 @@ export interface StatusResponse {
   latest_config_version: number;
   release_date: string;
   version: string;
+}
+
+export interface KanbanBoardColumn {
+  name: string;
+  tasks: KanbanTaskSummary[];
+}
+
+export interface KanbanBoardResponse {
+  columns: KanbanBoardColumn[];
+  tenants: string[];
+  assignees: string[];
+  latest_event_id: number;
+  now: number;
 }
 
 export interface SessionInfo {

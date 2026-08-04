@@ -1,0 +1,12 @@
+name = "hermes-knowledge"
+pages_build_output_dir = "../hermes_cli/web_dist"
+compatibility_date = "2026-08-04"
+
+# Server-side encrypted bindings (never Pages vars or browser build inputs):
+# HERMES_ORIGIN, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, HERMES_SESSION_TOKEN.
+#
+# The origin must start with the same HERMES_SESSION_TOKEN value supplied as
+# HERMES_DASHBOARD_SESSION_TOKEN. Hermes otherwise generates a new token on
+# every restart and this proxy receives 401 responses. Rotate both copies
+# together, then restart Hermes; Cloudflare Access credentials only authorize
+# the Tunnel hop and do not replace Hermes dashboard authentication.

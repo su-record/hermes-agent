@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { api } from "./api";
+import { api, setManagementProfile } from "./api";
 
 const SESSION_HEADER = "X-Hermes-Session-Token";
 
 afterEach(() => {
+  setManagementProfile("");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -44,6 +45,36 @@ describe("api.getModelOptions", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/model/options?profile=default&refresh=1&include_unconfigured=1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+});
+
+describe("knowledge command center API", () => {
+  it("uses the native knowledge and Kanban read endpoints", async () => {
+    vi.stubGlobal("window", {});
+    const fetchMock = jsonFetchMock({});
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getKnowledgeGraph();
+    await api.getKanbanBoard();
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/knowledge/graph",
+      "/api/plugins/kanban/board",
+    ]);
+  });
+
+  it("scopes the merged graph to the selected Hermes profile", async () => {
+    vi.stubGlobal("window", {});
+    const fetchMock = jsonFetchMock({});
+    vi.stubGlobal("fetch", fetchMock);
+    setManagementProfile("research");
+
+    await api.getKnowledgeGraph();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/knowledge/graph?profile=research",
       expect.objectContaining({ credentials: "include" }),
     );
   });

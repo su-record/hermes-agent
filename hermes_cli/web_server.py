@@ -3498,6 +3498,31 @@ async def get_learning_graph(profile: Optional[str] = None):
         raise HTTPException(status_code=500, detail="Failed to build learning graph")
 
 
+def _knowledge_vault_root() -> Path:
+    from hermes_cli.knowledge_graph import configured_vault_root
+
+    return configured_vault_root(load_config())
+
+
+@app.get("/api/knowledge/graph")
+async def get_knowledge_graph(profile: Optional[str] = None):
+    """Return the authenticated, metadata-only merged knowledge graph."""
+    try:
+        from agent.learning_graph import build_learning_graph
+        from hermes_cli.knowledge_graph import build_knowledge_graph
+
+        with _profile_scope(profile):
+            hermes_graph = build_learning_graph()
+            vault_root = _knowledge_vault_root()
+        graph = await asyncio.to_thread(
+            build_knowledge_graph, hermes_graph, vault_root
+        )
+        return JSONResponse(graph, headers={"Cache-Control": "private, no-store"})
+    except Exception:
+        _log.exception("GET /api/knowledge/graph failed")
+        raise HTTPException(status_code=500, detail="Failed to build knowledge graph")
+
+
 class LearningNodeRef(BaseModel):
     id: str
     profile: Optional[str] = None

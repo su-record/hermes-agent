@@ -10,6 +10,8 @@
     "lint:fix": "eslint . --fix",
     "fix": "npm run lint:fix",
     "preview": "vite preview",
+    "pages:build": "tsc -b && VITE_KNOWLEDGE_ONLY=1 vite build",
+    "pages:check": "npm run pages:build && npx --yes wrangler@4.118.0 pages functions build --config wrangler.toml --outdir ../.vibe/artifacts/hermes-knowledge-functions",
     "typecheck": "tsc -p . --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm run test"
