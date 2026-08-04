@@ -2,6 +2,7 @@ from pathlib import Path
 from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
+import pytest
 
 from hermes_cli.knowledge_graph import build_knowledge_graph, parse_obsidian_vault
 
@@ -13,17 +14,24 @@ def _write_note(vault: Path, name: str, text: str) -> Path:
     return path
 
 
-def test_parser_returns_allowlisted_metadata_edges_and_diagnostics(tmp_path):
+@pytest.fixture
+def vault(tmp_path):
+    path = tmp_path / "vault"
+    path.mkdir()
+    return path
+
+
+def test_parser_returns_allowlisted_metadata_edges_and_diagnostics(vault):
     _write_note(
-        tmp_path,
+        vault,
         "Alpha.md",
         "---\ntitle: Alpha title\ntype: concept\ntags: [one, two]\n"
         "timestamp: 2026-08-04\ndescription: Safe summary\nresource: https://secret.test\n"
         "private: never-return\n---\nSecret body [[Beta|label]] [[Missing]]",
     )
-    _write_note(tmp_path, "Beta.md", "---\ntags: three\n---\nOther secret")
+    _write_note(vault, "Beta.md", "---\ntags: three\n---\nOther secret")
 
-    graph = parse_obsidian_vault(tmp_path)
+    graph = parse_obsidian_vault(vault)
 
     assert len(graph.nodes) == 2
     alpha = next(node for node in graph.nodes if node["label"] == "Alpha title")
@@ -46,34 +54,34 @@ def test_parser_returns_allowlisted_metadata_edges_and_diagnostics(tmp_path):
     assert next(d for d in graph.diagnostics if d["code"] == "unresolved_wikilinks")["count"] == 1
 
 
-def test_parser_rejects_unsafe_and_limited_vault_content(tmp_path):
-    _write_note(tmp_path, "Visible.md", "[[TooLarge]]")
-    _write_note(tmp_path, ".hidden/Hidden.md", "hidden")
-    _write_note(tmp_path, "draft.md.bak", "backup")
-    _write_note(tmp_path, "TooLarge.md", "x" * 80)
-    outside = _write_note(tmp_path.parent, "Outside.md", "outside")
-    (tmp_path / "linked.md").symlink_to(outside)
+def test_parser_rejects_unsafe_and_limited_vault_content(vault):
+    _write_note(vault, "Visible.md", "[[TooLarge]]")
+    _write_note(vault, ".hidden/Hidden.md", "hidden")
+    _write_note(vault, "draft.md.bak", "backup")
+    _write_note(vault, "TooLarge.md", "x" * 80)
+    outside = _write_note(vault.parent, "Outside.md", "outside")
+    (vault / "linked.md").symlink_to(outside)
 
-    graph = parse_obsidian_vault(tmp_path, max_file_bytes=64, max_files=10)
+    graph = parse_obsidian_vault(vault, max_file_bytes=64, max_files=10)
 
     assert [node["label"] for node in graph.nodes] == ["Visible"]
-    assert all(str(tmp_path) not in repr(value) for value in (graph.nodes, graph.diagnostics))
+    assert all(str(vault) not in repr(value) for value in (graph.nodes, graph.diagnostics))
     codes = {item["code"]: item["count"] for item in graph.diagnostics}
     assert codes["excluded_hidden"] == 1
     assert codes["excluded_backup"] == 1
     assert codes["excluded_oversized"] == 1
     assert codes["excluded_symlink"] == 1
 
-    linked_root = tmp_path.parent / "linked-vault"
-    linked_root.symlink_to(tmp_path, target_is_directory=True)
+    linked_root = vault.parent / "linked-vault"
+    linked_root.symlink_to(vault, target_is_directory=True)
     rejected_root = parse_obsidian_vault(linked_root)
     assert rejected_root.nodes == []
     assert rejected_root.diagnostics[0]["code"] == "excluded_symlink"
 
 
-def test_parser_rejects_entry_swapped_to_symlink(monkeypatch, tmp_path):
-    note = _write_note(tmp_path, "Race.md", "safe")
-    outside = _write_note(tmp_path.parent, "Outside-race.md", "secret")
+def test_parser_rejects_entry_swapped_to_symlink(monkeypatch, vault):
+    note = _write_note(vault, "Race.md", "safe")
+    outside = _write_note(vault.parent, "Outside-race.md", "secret")
     real_open = __import__("os").open
 
     def swap_then_open(path, flags):
@@ -83,17 +91,17 @@ def test_parser_rejects_entry_swapped_to_symlink(monkeypatch, tmp_path):
 
     monkeypatch.setattr("hermes_cli.knowledge_graph.os.open", swap_then_open)
 
-    graph = parse_obsidian_vault(tmp_path)
+    graph = parse_obsidian_vault(vault)
 
     assert graph.nodes == []
     assert next(d for d in graph.diagnostics if d["code"] == "unreadable_notes")
 
 
-def test_parser_caps_aggregate_vault_bytes(tmp_path):
-    _write_note(tmp_path, "One.md", "12345678")
-    _write_note(tmp_path, "Two.md", "12345678")
+def test_parser_caps_aggregate_vault_bytes(vault):
+    _write_note(vault, "One.md", "12345678")
+    _write_note(vault, "Two.md", "12345678")
 
-    graph = parse_obsidian_vault(tmp_path, max_total_bytes=8)
+    graph = parse_obsidian_vault(vault, max_total_bytes=8)
 
     assert len(graph.nodes) == 1
     assert next(
@@ -101,25 +109,25 @@ def test_parser_caps_aggregate_vault_bytes(tmp_path):
     )["count"] == 1
 
 
-def test_merge_normalizes_hermes_ids_and_preserves_provenance(tmp_path):
-    _write_note(tmp_path, "Alpha.md", "")
+def test_merge_normalizes_hermes_ids_and_preserves_provenance(vault):
+    _write_note(vault, "Alpha.md", "")
     hermes = {
         "nodes": [{"id": "skill/a", "label": "A", "kind": "skill", "timestamp": 10}],
         "edges": [],
     }
 
-    first = build_knowledge_graph(hermes, tmp_path)
-    second = build_knowledge_graph(hermes, tmp_path)
+    first = build_knowledge_graph(hermes, vault)
+    second = build_knowledge_graph(hermes, vault)
 
     assert first["nodes"] == second["nodes"]
     assert {node["source"] for node in first["nodes"]} == {"hermes", "obsidian"}
     assert first["counts"] == {"hermes": 1, "obsidian": 1, "edges": 0}
 
 
-def test_endpoint_is_authenticated_and_matches_contract(monkeypatch, tmp_path):
+def test_endpoint_is_authenticated_and_matches_contract(monkeypatch, vault):
     from hermes_cli import web_server
 
-    monkeypatch.setattr(web_server, "_knowledge_vault_root", lambda: tmp_path)
+    monkeypatch.setattr(web_server, "_knowledge_vault_root", lambda: vault)
     monkeypatch.setattr(
         "agent.learning_graph.build_learning_graph",
         lambda: {"nodes": [], "edges": []},

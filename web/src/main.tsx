@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import "./index.css";
 import { SystemActionsProvider } from "./contexts/SystemActions";
 import { I18nProvider } from "./i18n";
