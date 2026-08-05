@@ -198,7 +198,7 @@ const BUILTIN_NAV_REST: NavItem[] = [
     label: "Analytics",
     icon: BarChart3,
   },
-  { path: "/knowledge", label: "Knowledge", icon: Database },
+  { path: "/knowledge", label: "Obsidian Graph", icon: Database },
   {
     path: "/models",
     labelKey: "models",

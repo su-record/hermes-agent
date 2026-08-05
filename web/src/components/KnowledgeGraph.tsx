@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 
 const WIDTH = 800;
 const HEIGHT = 480;
-const MAX_RENDERED_NODES = 250;
+const MAX_RENDERED_NODES = 80;
+const MAX_RENDERED_EDGES = 160;
 
 export interface KnowledgeGraphProps {
   edges: KnowledgeEdge[];
@@ -27,6 +28,9 @@ export function KnowledgeGraph({ edges, nodes, onSelect, selectedId }: Knowledge
   const renderedNodes = nodes.slice(0, MAX_RENDERED_NODES);
   const positioned = layoutKnowledgeGraph(renderedNodes, WIDTH, HEIGHT);
   const byId = new Map(positioned.map((node) => [node.id, node]));
+  const renderedEdges = edges
+    .filter((edge) => byId.has(edge.source) && byId.has(edge.target))
+    .slice(0, MAX_RENDERED_EDGES);
 
   if (!nodes.length) {
     return (
@@ -41,10 +45,10 @@ export function KnowledgeGraph({ edges, nodes, onSelect, selectedId }: Knowledge
       {nodes.length > renderedNodes.length ? <p role="status" className="text-xs text-muted-foreground">Showing the first {renderedNodes.length} of {nodes.length} matching nodes. Narrow the filters to inspect the remainder.</p> : null}
       <svg aria-label="Knowledge graph" aria-labelledby={titleId} className="h-auto max-h-[60dvh] min-h-64 w-full border border-border bg-background/30 motion-reduce:transition-none" role="img" viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
         <title id={titleId}>Knowledge graph</title>
-        {edges.map((edge) => {
+        {renderedEdges.map((edge) => {
           const source = byId.get(edge.source);
           const target = byId.get(edge.target);
-          return source && target ? <line key={`${edge.source}:${edge.target}:${edge.kind}`} className="stroke-border" x1={source.x} x2={target.x} y1={source.y} y2={target.y} /> : null;
+          return source && target ? <line key={`${edge.source}:${edge.target}:${edge.kind}`} className="stroke-border opacity-40" x1={source.x} x2={target.x} y1={source.y} y2={target.y} /> : null;
         })}
         {positioned.map((node) => (
           <g key={node.id} onClick={() => onSelect(node)} role="button" tabIndex={0} aria-label={`${node.label}, ${node.source} ${node.type}`} aria-pressed={selectedId === node.id} onKeyDown={(event) => {
@@ -54,8 +58,9 @@ export function KnowledgeGraph({ edges, nodes, onSelect, selectedId }: Knowledge
             }
           }} className="cursor-pointer outline-none focus-visible:[&>circle]:stroke-foreground">
             <circle cx={node.x} cy={node.y} r={22} className="fill-transparent" />
-            <circle cx={node.x} cy={node.y} r={selectedId === node.id ? 14 : 11} className={cn("stroke-2", node.source === "obsidian" ? "fill-warning/20 stroke-warning" : "fill-success/20 stroke-success")} />
-            <text x={node.x} y={node.y + 28} textAnchor="middle" className="fill-foreground text-[11px]">{node.label.slice(0, 24)}</text>
+            <circle cx={node.x} cy={node.y} r={selectedId === node.id ? 12 : 7} className={cn("stroke-2", node.source === "obsidian" ? "fill-warning/20 stroke-warning" : "fill-success/20 stroke-success")} />
+            <title>{node.label}</title>
+            {selectedId === node.id ? <text x={node.x} y={node.y + 24} textAnchor="middle" className="fill-foreground text-[12px] font-medium">{node.label.slice(0, 32)}</text> : null}
           </g>
         ))}
       </svg>

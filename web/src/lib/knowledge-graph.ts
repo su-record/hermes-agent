@@ -109,12 +109,14 @@ export function layoutKnowledgeGraph(
 ): PositionedKnowledgeNode[] {
   const usableWidth = Math.max(width - GRAPH_MARGIN_PX * 2, 1);
   const usableHeight = Math.max(height - GRAPH_MARGIN_PX * 2, 1);
-  const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length * (usableWidth / usableHeight))));
-  const rows = Math.max(1, Math.ceil(nodes.length / columns));
+  const centerX = GRAPH_MARGIN_PX + usableWidth / 2;
+  const centerY = GRAPH_MARGIN_PX + usableHeight / 2;
+  const maxRadius = Math.max(1, Math.min(usableWidth, usableHeight) / 2);
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
   return nodes.map((node, index) => ({
     ...node,
-    x: GRAPH_MARGIN_PX + ((index % columns) + 0.5) * (usableWidth / columns),
-    y: GRAPH_MARGIN_PX + (Math.floor(index / columns) + 0.5) * (usableHeight / rows),
+    x: centerX + Math.cos(index * goldenAngle) * maxRadius * Math.sqrt(index / Math.max(nodes.length, 1)),
+    y: centerY + Math.sin(index * goldenAngle) * maxRadius * Math.sqrt(index / Math.max(nodes.length, 1)),
   }));
 }
 

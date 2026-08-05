@@ -149,7 +149,7 @@ export default function KnowledgePage() {
   const { board, graph, refresh, refreshBoard, status } = useCommandCenterData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filters, setFilters] = useState<KnowledgeGraphFilters>({ query: "", sources: new Set(), types: new Set(), tags: new Set() });
-  useLayoutEffect(() => { setTitle("Knowledge Command Center"); return () => setTitle(null); }, [setTitle]);
+  useLayoutEffect(() => { setTitle("Hermes + Obsidian"); return () => setTitle(null); }, [setTitle]);
   useKanbanEvents(board.data?.latest_event_id, refreshBoard);
   const visible = useMemo(() => graph.data ? filterKnowledgeGraph(graph.data, filters) : { nodes: [], edges: [] }, [filters, graph.data]);
   const selected = visible.nodes.find((node) => node.id === selectedId) ?? null;
@@ -157,7 +157,7 @@ export default function KnowledgePage() {
 
   return (
     <div className="grid gap-6 p-4 sm:p-6" aria-label="Knowledge command center">
-      <div className="flex items-center justify-between"><div><h1 className="text-2xl font-semibold">Knowledge Command Center</h1><p className="text-sm text-muted-foreground">Hermes operations and Obsidian knowledge, in one view.</p></div><Button ghost onClick={refresh} aria-label="Refresh command center"><RefreshCw className="h-4 w-4" /></Button></div>
+      <div className="flex items-center justify-between"><div><h1 className="text-2xl font-semibold">Hermes + Obsidian</h1><p className="text-sm text-muted-foreground">Hermes operations and the connected Obsidian vault graph in one view.</p></div><Button ghost onClick={refresh} aria-label="Refresh command center"><RefreshCw className="h-4 w-4" /></Button></div>
       <div className="flex gap-4 overflow-x-auto pb-1"><SummaryCard label="Gateway health" loading={status.loading} error={status.error} value={status.data?.gateway_running ? "Running" : "Stopped"}><Bot className="mt-2 h-4 w-4 text-muted-foreground" /></SummaryCard><SummaryCard label="Kanban tasks" loading={board.loading} error={board.error} value={tasks.length} /><SummaryCard label="Knowledge nodes" loading={graph.loading} error={graph.error} value={graph.data?.nodes.length ?? 0}><Database className="mt-2 h-4 w-4 text-muted-foreground" /></SummaryCard></div>
       <section className="grid gap-4 lg:grid-cols-12" aria-label="Knowledge explorer">
         <div className="lg:col-span-8 rounded-lg border border-border bg-card p-4">{graph.loading ? <div className="grid min-h-64 place-items-center" aria-busy="true"><Spinner /></div> : graph.error ? <p role="alert" className="min-h-64 p-4 text-destructive">Knowledge graph unavailable: {graph.error}</p> : graph.data ? <KnowledgeGraph nodes={visible.nodes} edges={visible.edges} selectedId={selectedId} onSelect={(node) => setSelectedId(node.id)} /> : null}</div>
