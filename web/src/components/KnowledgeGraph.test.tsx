@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("react-force-graph-2d", () => ({
+  default: () => <canvas aria-label="Interactive knowledge graph canvas" />,
+}));
+
 import { KnowledgeGraph } from "./KnowledgeGraph";
 import type { KnowledgeEdge, KnowledgeNode } from "@/lib/knowledge-graph";
 
@@ -13,12 +17,14 @@ const edges: KnowledgeEdge[] = [
 ];
 
 describe("KnowledgeGraph", () => {
-  it("renders a deterministic keyboard-accessible graph and list alternative", () => {
+  it("renders interactive controls, a semantic legend, and list alternative", () => {
     const markup = renderToStaticMarkup(
       <KnowledgeGraph edges={edges} nodes={nodes} onSelect={vi.fn()} selectedId="o:ops" />,
     );
 
-    expect(markup).toContain('aria-label="Knowledge graph"');
+    expect(markup).toContain('aria-label="Fit graph to view"');
+    expect(markup).toContain('aria-label="Reset graph view"');
+    expect(markup).toContain("Node type legend");
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain("Connected knowledge list");
     expect(markup).toContain("Operations");

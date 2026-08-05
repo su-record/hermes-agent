@@ -44,6 +44,48 @@ export interface PositionedKnowledgeNode extends KnowledgeNode {
   y: number;
 }
 
+export type SemanticNodeGroup =
+  | "research"
+  | "harvest"
+  | "operations"
+  | "mail"
+  | "media"
+  | "note"
+  | "other";
+
+export interface InteractiveKnowledgeNode extends KnowledgeNode {
+  group: SemanticNodeGroup;
+}
+
+export interface InteractiveKnowledgeLink extends KnowledgeEdge {
+  source: string;
+  target: string;
+}
+
+const MAX_INTERACTIVE_NODES = 400;
+
+export function semanticNodeGroup(node: KnowledgeNode): SemanticNodeGroup {
+  const tags = new Set(node.tags.map((tag) => tag.toLocaleLowerCase()));
+  const type = node.type.toLocaleLowerCase();
+  if (type === "mail-note" || tags.has("mail")) return "mail";
+  if (["incident", "retro", "devlog"].includes(type) || tags.has("autofix")) return "operations";
+  if (["youtube", "web"].includes(type)) return "media";
+  if (["research-brief", "publication"].includes(type) || tags.has("research")) return "research";
+  if (type === "harvest") return "harvest";
+  if (["note", "reference"].includes(type)) return "note";
+  return "other";
+}
+
+export function buildInteractiveGraph(nodes: KnowledgeNode[], edges: KnowledgeEdge[]) {
+  const boundedNodes = nodes.slice(0, MAX_INTERACTIVE_NODES);
+  const ids = new Set(boundedNodes.map((node) => node.id));
+  return {
+    nodes: boundedNodes.map((node) => ({ ...node, group: semanticNodeGroup(node) })),
+    links: edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
+    truncated: Math.max(0, nodes.length - boundedNodes.length),
+  };
+}
+
 export interface KanbanTaskSummary {
   id: string;
   title: string;

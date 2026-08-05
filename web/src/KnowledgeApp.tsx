@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router";
 
 import { PageHeaderProvider } from "@/contexts/PageHeaderProvider";
 import KnowledgePage from "@/pages/KnowledgePage";

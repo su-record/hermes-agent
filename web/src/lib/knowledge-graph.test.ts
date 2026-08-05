@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildInteractiveGraph,
   diagnoseKanbanTask,
   filterKnowledgeGraph,
   layoutKnowledgeGraph,
+  semanticNodeGroup,
   type KanbanTaskSummary,
   type KnowledgeGraphResponse,
 } from "./knowledge-graph";
@@ -39,6 +41,34 @@ describe("filterKnowledgeGraph", () => {
       "o:private",
     ]);
     expect(result.edges).toHaveLength(2);
+  });
+
+  it("bounds the interactive graph to 400 nodes and valid links", () => {
+    const nodes = Array.from({ length: 450 }, (_, index) => ({
+      id: `node:${index}`,
+      label: `Node ${index}`,
+      source: "obsidian" as const,
+      type: index % 2 ? "note" : "memory",
+      tags: index % 3 ? [] : ["project"],
+    }));
+    const edges = nodes.slice(1).map((node, index) => ({
+      source: nodes[index].id,
+      target: node.id,
+      kind: "related",
+    }));
+
+    const result = buildInteractiveGraph(nodes, edges);
+
+    expect(result.nodes).toHaveLength(400);
+    expect(result.links).toHaveLength(399);
+    expect(result.truncated).toBe(50);
+  });
+
+  it("groups colors by semantic type and tag instead of source", () => {
+    expect(semanticNodeGroup({ ...graph.nodes[0], type: "harvest" })).toBe("harvest");
+    expect(semanticNodeGroup({ ...graph.nodes[1], type: "mail-note", tags: ["mail"] })).toBe("mail");
+    expect(semanticNodeGroup({ ...graph.nodes[1], type: "youtube", tags: [] })).toBe("media");
+    expect(semanticNodeGroup({ ...graph.nodes[1], type: "incident", tags: [] })).toBe("operations");
   });
 
   it("returns a stable bounded layout", () => {
